@@ -1,0 +1,91 @@
+#参照する世の中のオープンデータの名前 (講義資料9ページ目から選択)
+#「国土交通省」(e-Stat API)
+#・国土交通省が提供する地理情報や交通関連のデータ
+#・道路、河川などの情報を公開、一部やe-Statと連携
+#取得したデータの種類：国土交通省⇒統計情報⇒航空輸送統計速報（令和7年3月分）⇒航空輸送統計調査⇒年次⇒調査年月 2023年⇒国内定期航空月別運航及び輸送実績⇒年度次
+#https://www.mlit.go.jp/statistics/index.html
+#https://www.mlit.go.jp/statistics/details/index.html
+#https://www.mlit.go.jp/report/press/joho05_hh_000850.html
+#https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00600360&tstat=000001136503&cycle=1&tclass1val=0
+#https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00600360
+#https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00600360&tstat=000001018894&cycle=7&tclass1val=0
+#https://www.e-stat.go.jp/dbview?sid=0003173882
+#APIリクエストURL JSON形式
+#取得データ⇒表章項目：運航及び輸送実績,運航・輸送実績：運航回数,幹線・ローカル線：計,年度次：2006年度～2023年度
+#http://api.e-stat.go.jp/rest/3.0/app/json/getStatsData?cdCat02=100&cdCat01=100&appId=&lang=J&statsDataId=0003173882&metaGetFlg=Y&cntGetFlg=N&explanationGetFlg=Y&annotationGetFlg=Y&sectionHeaderFlg=1&replaceSpChars=0
+
+#データの使い方
+#APIリクエストを送信してJSONデータを取得
+#統計データの「DATA_INF」部分から必要なデータ「運航回数」を抽出
+#取得したデータをpandasのDataFrameに変換
+#メタ情報を利用し、カテゴリの数値を名称に変換
+
+import requests
+import pandas as pd
+
+APP_ID = "0cd8135c0334a94ff93349bbf379ced7bbfc50f5"
+#エンドポイント
+API_URL  = "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData"
+
+#機能
+params = {
+    "appId": APP_ID, #APIアクセス用のアプリID
+    "statsDataId":"0003173882", #「航空輸送統計調査 国内定期航空月別運航及び輸送実績」を指定
+    "cdCat02":"100", #「運航・輸送実績（運航回数）」を指定
+    "cdCat01":"100", #「幹線・ローカル線の計」を指定
+    "metaGetFlg":"Y", #メタ情報を取得
+    "cntGetFlg":"N", #データ件数取得フラグ(今回は取得しない)
+    "explanationGetFlg":"Y", #データの説明を取得
+    "annotationGetFlg":"Y", #注釈情報を取得
+    "sectionHeaderFlg":"1", #セクションのヘッダーを表示
+    "replaceSpChars":"0", #特殊文字の置換
+    "lang": "J"  # 日本語を指定
+}
+
+response = requests.get(API_URL, params=params)
+# Process the response
+data = response.json()
+
+# 統計データからデータ部取得
+values = data['GET_STATS_DATA']['STATISTICAL_DATA']['DATA_INF']['VALUE']
+
+# JSONからDataFrameを作成
+df = pd.DataFrame(values)
+
+# メタ情報取得
+meta_info = data['GET_STATS_DATA']['STATISTICAL_DATA']['CLASS_INF']['CLASS_OBJ']
+
+# 統計データのカテゴリ要素をID(数字の羅列)から、意味のある名称に変更する
+for class_obj in meta_info:
+
+    # メタ情報の「@id」の先頭に'@'を付与した文字列が、統計データの列名と対応している
+    column_name = '@' + class_obj['@id']
+
+    # 統計データの列名を「@code」から「@name」に置換するディクショナリを作成
+    id_to_name_dict = {}
+    if isinstance(class_obj['CLASS'], list):
+        for obj in class_obj['CLASS']:
+            id_to_name_dict[obj['@code']] = obj['@name']
+    else:
+        id_to_name_dict[class_obj['CLASS']['@code']] = class_obj['CLASS']['@name']
+
+    # ディクショナリを用いて、指定した列の要素を置換
+    df[column_name] = df[column_name].replace(id_to_name_dict)
+
+# 統計データの列名を変換するためのディクショナリを作成
+col_replace_dict = {'@unit': '単位', '$': '値'}
+for class_obj in meta_info:
+    org_col = '@' + class_obj['@id']
+    new_col = class_obj['@name']
+    col_replace_dict[org_col] = new_col
+
+# ディクショナリに従って、列名を置換する
+new_columns = []
+for col in df.columns:
+    if col in col_replace_dict:
+        new_columns.append(col_replace_dict[col])
+    else:
+        new_columns.append(col)
+
+df.columns = new_columns
+print(df)
