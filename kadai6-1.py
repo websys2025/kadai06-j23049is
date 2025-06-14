@@ -20,13 +20,18 @@ API_URL  = "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData"
 
 #機能
 params = {
-    "appId": APP_ID,
-    "statsDataId":"0003440038", #「鉄道輸送統計調査 旅客人キロ 路線別」を指定
+    "appId": APP_ID, #APIアクセス用のアプリID
+    "statsDataId":"0003440038", #「鉄道輸送統計調査 旅客人キロ」を指定
     "cdCat01":"290", #「新幹線_東海道線」を指定
-    "cdTab":"140", #「旅客人キロ」を取得
-    "cdCat02":"100", #「定期・定期外の計」を取得
+    "cdTab":"140", #「旅客人キロ」を指定
+    "cdCat02":"100", #「定期・定期外の計」を指定
     "metaGetFlg":"Y", #メタ情報を取得
-    "lang": "J"  #日本語を指定
+    "cntGetFlg":"N", #データ件数取得フラグ(今回は取得しない)
+    "explanationGetFlg":"Y", #データの説明を取得
+    "annotationGetFlg":"Y", #注釈情報を取得
+    "sectionHeaderFlg":"1", #セクションのヘッダーを表示
+    "replaceSpChars":"0", #特殊文字の置換
+    "lang": "J"  # 日本語を指定
 }
 
 response = requests.get(API_URL, params=params)
